@@ -21,6 +21,21 @@ cube(`events`, {
       type: `string`,
     },
 
+    campaign: {
+      sql: `campaign`,
+      type: `string`,
+    },
+
+    event_type: {
+      sql: `event_type`,
+      type: `string`,
+    },
+
+    plan: {
+      sql: `plan`,
+      type: `string`,
+    },
+
     event_time: {
       sql: `event_time`,
       type: `time`,
@@ -50,6 +65,21 @@ cube(`events`, {
       sql: `session_duration_seconds`,
       type: `avg`,
     },
+
+    signups: {
+      sql: `CASE WHEN ${CUBE}.event_type = 'signup' THEN 1 ELSE 0 END`,
+      type: `sum`,
+    },
+
+    purchases: {
+      sql: `CASE WHEN ${CUBE}.event_type = 'purchase' THEN 1 ELSE 0 END`,
+      type: `sum`,
+    },
+
+    upgrades: {
+      sql: `CASE WHEN ${CUBE}.event_type = 'upgrade' THEN 1 ELSE 0 END`,
+      type: `sum`,
+    },
   },
 
   pre_aggregations: {
@@ -66,10 +96,28 @@ cube(`events`, {
     },
     dailyByDevice: {
       type: "rollup",
-      measures: [events.pv, events.uv],
+      measures: [events.pv, events.uv, events.signups],
       timeDimension: events.event_time,
       granularity: "day",
       dimensions: [events.device],
+      partitionGranularity: "month",
+      refreshKey: { every: "30 minutes" },
+    },
+    dailyByCampaign: {
+      type: "rollup",
+      measures: [events.pv, events.uv, events.revenue, events.signups, events.purchases],
+      timeDimension: events.event_time,
+      granularity: "day",
+      dimensions: [events.campaign],
+      partitionGranularity: "month",
+      refreshKey: { every: "30 minutes" },
+    },
+    dailyByEventType: {
+      type: "rollup",
+      measures: [events.pv, events.uv, events.revenue, events.signups, events.purchases, events.upgrades],
+      timeDimension: events.event_time,
+      granularity: "day",
+      dimensions: [events.event_type],
       partitionGranularity: "month",
       refreshKey: { every: "30 minutes" },
     },
