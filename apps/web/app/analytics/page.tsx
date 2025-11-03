@@ -15,7 +15,8 @@ import {
   Legend,
 } from "recharts";
 
-const apiUrl = `${process.env.NEXT_PUBLIC_CUBEJS_API}/cubejs-api/v1`;
+const baseUrl = process.env.NEXT_PUBLIC_CUBEJS_API?.replace(/\/+$/, "");
+const apiUrl = baseUrl ? `${baseUrl}/cubejs-api/v1` : "/cubejs-api/v1";
 const token = process.env.NEXT_PUBLIC_CUBEJS_TOKEN || "DEV_TOKEN";
 const cube = cubejs(token, { apiUrl });
 
@@ -28,12 +29,18 @@ type Row = {
   uv?: number;
   revenue?: number;
   avg_session?: number;
+  signups?: number;
+  purchases?: number;
+  upgrades?: number;
 };
 
 const DIMENSIONS = [
   { value: "events.region", label: "Region" },
   { value: "events.device", label: "Device" },
   { value: "events.source", label: "Source" },
+  { value: "events.campaign", label: "Campaign" },
+  { value: "events.event_type", label: "Event Type" },
+  { value: "events.plan", label: "Plan" },
 ];
 
 const METRICS = [
@@ -41,9 +48,16 @@ const METRICS = [
   { value: "events.uv", label: "UV" },
   { value: "events.revenue", label: "Revenue" },
   { value: "events.avg_session", label: "Avg Session (s)" },
+  { value: "events.signups", label: "Signups" },
+  { value: "events.purchases", label: "Purchases" },
+  { value: "events.upgrades", label: "Upgrades" },
 ];
 
 const DEFAULT_METRICS = ["events.pv"];
+const METRIC_LABELS = METRICS.reduce<Record<string, string>>((acc, item) => {
+  acc[item.value] = item.label;
+  return acc;
+}, {});
 
 export default function AnalyticsPage() {
   const [dimension, setDimension] = useState("events.region");
@@ -56,10 +70,12 @@ export default function AnalyticsPage() {
   });
   const [end, setEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState<Row[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
     setLoading(true);
+    setError(null);
     try {
       const activeMetrics = metrics.length ? metrics : DEFAULT_METRICS;
       const timeDimensions: any[] = [
@@ -91,6 +107,13 @@ export default function AnalyticsPage() {
         return o as Row;
       });
       setRows(out);
+    } catch (err) {
+      console.error("Failed to load analytics data", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load analytics data. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -102,7 +125,9 @@ export default function AnalyticsPage() {
 
   const activeMetrics = metrics.length ? metrics : DEFAULT_METRICS;
   const chartData = useMemo(() => rows, [rows]);
-  const primaryMetricKey = activeMetrics[0]?.split(".").pop() || "pv";
+  const primaryMetricValue = activeMetrics[0] || DEFAULT_METRICS[0];
+  const primaryMetricKey = primaryMetricValue.split(".").pop() || "pv";
+  const primaryMetricLabel = METRIC_LABELS[primaryMetricValue] || primaryMetricKey.toUpperCase();
 
   return (
     <main
@@ -220,13 +245,11 @@ export default function AnalyticsPage() {
               <YAxis />
               <Tooltip />
               <Legend />
-              {activeMetrics.map((m) => (
-                <Bar
-                  key={m}
-                  dataKey={m.split(".").pop()!}
-                  name={m.split(".").pop()!.toUpperCase()}
-                />
-              ))}
+              {activeMetrics.map((m) => {
+                const key = m.split(".").pop()!;
+                const label = METRIC_LABELS[m] || key.toUpperCase();
+                return <Bar key={m} dataKey={key} name={label} />;
+              })}
             </BarChart>
           ) : (
             <LineChart data={chartData}>
@@ -238,13 +261,17 @@ export default function AnalyticsPage() {
               <Line
                 type="monotone"
                 dataKey={primaryMetricKey}
-                name={primaryMetricKey.toUpperCase()}
+                name={primaryMetricLabel}
                 dot={false}
               />
             </LineChart>
           )}
         </ResponsiveContainer>
       </div>
+
+      {error ? (
+        <p style={{ color: "#d00", marginTop: 12 }}>{error}</p>
+      ) : null}
 
       <p style={{ color: "#666", marginTop: 12 }}>
         Tip: the default date range is the latest 180 days, but you can adjust
