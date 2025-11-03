@@ -44,6 +44,7 @@ const METRICS = [
 ];
 
 const DEFAULT_METRICS = ["events.pv"];
+const CHART_COLORS = ["#4F46E5", "#0EA5E9", "#10B981", "#F97316", "#F43F5E"];
 
 export default function AnalyticsPage() {
   const [dimension, setDimension] = useState("events.region");
@@ -69,11 +70,16 @@ export default function AnalyticsPage() {
           ...(mode === "series" ? { granularity: "day" } : {}),
         },
       ];
+      const order =
+        mode === "ranking"
+          ? { [activeMetrics[0]]: "desc" as const }
+          : { "events.event_time": "asc" as const };
+
       const query: any = {
         measures: activeMetrics,
         dimensions: [dimension],
         timeDimensions,
-        order: { [activeMetrics[0]]: "desc" as const },
+        order,
         ...(mode === "ranking" ? { limit: 100 } : {}),
       };
       const rs = await cube.load(query);
@@ -102,7 +108,18 @@ export default function AnalyticsPage() {
 
   const activeMetrics = metrics.length ? metrics : DEFAULT_METRICS;
   const chartData = useMemo(() => rows, [rows]);
-  const primaryMetricKey = activeMetrics[0]?.split(".").pop() || "pv";
+  const metricConfigs = useMemo(
+    () =>
+      activeMetrics.map((metric) => {
+        const key = metric.split(".").pop() || metric;
+        return {
+          metric,
+          key,
+          label: key.toUpperCase(),
+        };
+      }),
+    [activeMetrics]
+  );
 
   return (
     <main
@@ -220,11 +237,12 @@ export default function AnalyticsPage() {
               <YAxis />
               <Tooltip />
               <Legend />
-              {activeMetrics.map((m) => (
+              {metricConfigs.map(({ metric, key, label }, idx) => (
                 <Bar
-                  key={m}
-                  dataKey={m.split(".").pop()!}
-                  name={m.split(".").pop()!.toUpperCase()}
+                  key={metric}
+                  dataKey={key}
+                  name={label}
+                  fill={CHART_COLORS[idx % CHART_COLORS.length]}
                 />
               ))}
             </BarChart>
@@ -235,12 +253,17 @@ export default function AnalyticsPage() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey={primaryMetricKey}
-                name={primaryMetricKey.toUpperCase()}
-                dot={false}
-              />
+              {metricConfigs.map(({ metric, key, label }, idx) => (
+                <Line
+                  key={metric}
+                  type="monotone"
+                  dataKey={key}
+                  name={label}
+                  dot={false}
+                  stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                  strokeWidth={2}
+                />
+              ))}
             </LineChart>
           )}
         </ResponsiveContainer>
