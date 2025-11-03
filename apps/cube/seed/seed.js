@@ -48,6 +48,7 @@ function randChoice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 // Skewed revenue: 25% zero, otherwise ~lognormal
 function randomRevenue(scale = 20) {
+  if (Math.random() < 0.25) return 0;
   const u = Math.random();
   const v = Math.random();
   const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);

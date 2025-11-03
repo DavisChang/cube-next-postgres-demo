@@ -15,7 +15,8 @@ import {
   Legend,
 } from "recharts";
 
-const apiUrl = `${process.env.NEXT_PUBLIC_CUBEJS_API}/cubejs-api/v1`;
+const baseUrl = process.env.NEXT_PUBLIC_CUBEJS_API?.replace(/\/+$/, "");
+const apiUrl = baseUrl ? `${baseUrl}/cubejs-api/v1` : "/cubejs-api/v1";
 const token = process.env.NEXT_PUBLIC_CUBEJS_TOKEN || "DEV_TOKEN";
 const cube = cubejs(token, { apiUrl });
 
@@ -69,10 +70,12 @@ export default function AnalyticsPage() {
   });
   const [end, setEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState<Row[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
     setLoading(true);
+    setError(null);
     try {
       const activeMetrics = metrics.length ? metrics : DEFAULT_METRICS;
       const timeDimensions: any[] = [
@@ -104,6 +107,13 @@ export default function AnalyticsPage() {
         return o as Row;
       });
       setRows(out);
+    } catch (err) {
+      console.error("Failed to load analytics data", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load analytics data. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -258,6 +268,10 @@ export default function AnalyticsPage() {
           )}
         </ResponsiveContainer>
       </div>
+
+      {error ? (
+        <p style={{ color: "#d00", marginTop: 12 }}>{error}</p>
+      ) : null}
 
       <p style={{ color: "#666", marginTop: 12 }}>
         Tip: the default date range is the latest 180 days, but you can adjust
